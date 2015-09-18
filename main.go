@@ -43,34 +43,58 @@ func (e *Error) Error() string {
 
 
 var (
-	localAddrString  = "localhost:9000"
+	localAddrString  = ":9000"
 	unixDockerSocket = "unix:///var/run/docker.sock"
 
 )
+
+
+
+func dockerRequestHandler(transformers map[string]func(r *http.Request)) http.Handler {
+	fn := func(w http.ResponseWriter, r *http.Request) {
+		fmt.Println("Recieved methos ", r.Method, " url", r.URL)
+		c, err := newClient(unixDockerSocket)
+
+		if err != nil {
+			w.Write([]byte("Error"))
+			return
+		}
+
+		for k, f := range transformers{
+			fmt.Println("Applixing expresion ", k)
+			f(r)
+		}
+
+		// TODO needs to accept POST content
+		resp, err := c.do( r.Method,  r.URL.String())
+
+		if err != nil {
+			w.Write([]byte("Error"))
+			return
+		}
+
+		defer resp.Body.Close()
+
+		content, _ := ioutil.ReadAll(resp.Body)
+
+		w.Write(content)
+	}
+	return http.HandlerFunc(fn)
+}
+
 func main(){
-
-
 
 	fmt.Println("Starting multi-tenancy proxy")
 
-	// Setup localListener (type net.Listener)
-	localListener, err := net.Listen("tcp", localAddrString)
-
-	if err != nil {
-		log.Fatalf("net.Listen failed: %v", err)
+	f := func(r *http.Request){
+		fmt.Println("Modifiy somehow the request")
 	}
 
-	for {
-		// Setup localConn (type net.Conn)
-		localConn, err := localListener.Accept()
-		if err != nil {
-			log.Fatalf("listen.Accept failed: %v", err)
-		}
-		go forward(localConn)
-	}
+	transformers := make(map[string]func(r *http.Request))
 
+	transformers["*"] = f
 
-
+	http.ListenAndServe(localAddrString, dockerRequestHandler(transformers))
 
 }
 
