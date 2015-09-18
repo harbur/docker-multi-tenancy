@@ -82,50 +82,6 @@ func dockerRequestHandler(transformers map[string]func(r *http.Request)) http.Ha
 	return http.HandlerFunc(fn)
 }
 
-func main(){
-
-	fmt.Println("Starting multi-tenancy proxy")
-
-	f := func(r *http.Request){
-		fmt.Println("Modifiy somehow the request")
-	}
-
-	transformers := make(map[string]func(r *http.Request))
-
-	transformers["*"] = f
-
-	http.ListenAndServe(localAddrString, dockerRequestHandler(transformers))
-
-}
-
-func forward(localConn net.Conn) {
-	c, err := newClient(unixDockerSocket)
-
-	sockerCon, err := c.dialer("unix", c.endpointURL.Path)
-
-	if err != nil {
-		fmt.Println("Error dialing")
-		os.Exit(-1)
-	}
-
-	// Copy localConn.Reader to sshConn.Writer
-	go func() {
-		_, err = io.Copy(sockerCon, localConn)
-		if err != nil {
-			log.Fatalf("io.Copy failed: %v", err)
-		}
-	}()
-
-	// Copy sshConn.Reader to localConn.Writer
-	go func() {
-		_, err = io.Copy(localConn, sockerCon)
-		if err != nil {
-			log.Fatalf("io.Copy failed: %v", err)
-		}
-	}()
-}
-
-
 // NewVersionedClient returns a Client instance ready for communication with
 // the given server endpoint
 func newClient(endpoint string) (*Client, error) {
@@ -209,3 +165,21 @@ func newError(resp *http.Response) *Error {
 	}
 	return &Error{Status: resp.StatusCode, Message: string(data)}
 }
+
+
+func main(){
+
+	fmt.Println("Starting multi-tenancy proxy")
+
+	f := func(r *http.Request){
+		fmt.Println("Modifiy somehow the request")
+	}
+
+	transformers := make(map[string]func(r *http.Request))
+
+	transformers["*"] = f
+
+	http.ListenAndServe(localAddrString, dockerRequestHandler(transformers))
+
+}
+
