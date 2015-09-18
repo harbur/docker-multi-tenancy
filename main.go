@@ -10,7 +10,6 @@ import (
 	"os"
 	"io"
 	"io/ioutil"
-	"time"
 	"log"
 )
 
@@ -31,89 +30,6 @@ type Client struct{
 	dialer              func(string, string) (net.Conn, error)
 }
 
-// APIImages represent an image returned in the ListImages call.
-type APIImages struct {
-	ID          string            `json:"Id" yaml:"Id"`
-	RepoTags    []string          `json:"RepoTags,omitempty" yaml:"RepoTags,omitempty"`
-	Created     int64             `json:"Created,omitempty" yaml:"Created,omitempty"`
-	Size        int64             `json:"Size,omitempty" yaml:"Size,omitempty"`
-	VirtualSize int64             `json:"VirtualSize,omitempty" yaml:"VirtualSize,omitempty"`
-	ParentID    string            `json:"ParentId,omitempty" yaml:"ParentId,omitempty"`
-	RepoDigests []string          `json:"RepoDigests,omitempty" yaml:"RepoDigests,omitempty"`
-	Labels      map[string]string `json:"Labels,omitempty" yaml:"Labels,omitempty"`
-}
-
-// Port represents the port number and the protocol, in the form
-// <number>/<protocol>. For example: 80/tcp.
-type Port string
-
-// Port returns the number of the port.
-func (p Port) Port() string {
-	return strings.Split(string(p), "/")[0]
-}
-
-// Mount represents a mount point in the container.
-//
-// It has been added in the version 1.20 of the Docker API, available since
-// Docker 1.8.
-type Mount struct {
-	Source      string
-	Destination string
-	Mode        string
-	RW          bool
-}
-
-// Config is the list of configuration options used when creating a container.
-// Config does not contain the options that are specific to starting a container on a
-// given host.  Those are contained in HostConfig
-type Config struct {
-	Hostname        string              `json:"Hostname,omitempty" yaml:"Hostname,omitempty"`
-	Domainname      string              `json:"Domainname,omitempty" yaml:"Domainname,omitempty"`
-	User            string              `json:"User,omitempty" yaml:"User,omitempty"`
-	Memory          int64               `json:"Memory,omitempty" yaml:"Memory,omitempty"`
-	MemorySwap      int64               `json:"MemorySwap,omitempty" yaml:"MemorySwap,omitempty"`
-	CPUShares       int64               `json:"CpuShares,omitempty" yaml:"CpuShares,omitempty"`
-	CPUSet          string              `json:"Cpuset,omitempty" yaml:"Cpuset,omitempty"`
-	AttachStdin     bool                `json:"AttachStdin,omitempty" yaml:"AttachStdin,omitempty"`
-	AttachStdout    bool                `json:"AttachStdout,omitempty" yaml:"AttachStdout,omitempty"`
-	AttachStderr    bool                `json:"AttachStderr,omitempty" yaml:"AttachStderr,omitempty"`
-	PortSpecs       []string            `json:"PortSpecs,omitempty" yaml:"PortSpecs,omitempty"`
-	ExposedPorts    map[Port]struct{}   `json:"ExposedPorts,omitempty" yaml:"ExposedPorts,omitempty"`
-	Tty             bool                `json:"Tty,omitempty" yaml:"Tty,omitempty"`
-	OpenStdin       bool                `json:"OpenStdin,omitempty" yaml:"OpenStdin,omitempty"`
-	StdinOnce       bool                `json:"StdinOnce,omitempty" yaml:"StdinOnce,omitempty"`
-	Env             []string            `json:"Env,omitempty" yaml:"Env,omitempty"`
-	Cmd             []string            `json:"Cmd" yaml:"Cmd"`
-	DNS             []string            `json:"Dns,omitempty" yaml:"Dns,omitempty"` // For Docker API v1.9 and below only
-	Image           string              `json:"Image,omitempty" yaml:"Image,omitempty"`
-	Volumes         map[string]struct{} `json:"Volumes,omitempty" yaml:"Volumes,omitempty"`
-	VolumeDriver    string              `json:"VolumeDriver,omitempty" yaml:"VolumeDriver,omitempty"`
-	VolumesFrom     string              `json:"VolumesFrom,omitempty" yaml:"VolumesFrom,omitempty"`
-	WorkingDir      string              `json:"WorkingDir,omitempty" yaml:"WorkingDir,omitempty"`
-	MacAddress      string              `json:"MacAddress,omitempty" yaml:"MacAddress,omitempty"`
-	Entrypoint      []string            `json:"Entrypoint" yaml:"Entrypoint"`
-	NetworkDisabled bool                `json:"NetworkDisabled,omitempty" yaml:"NetworkDisabled,omitempty"`
-	SecurityOpts    []string            `json:"SecurityOpts,omitempty" yaml:"SecurityOpts,omitempty"`
-	OnBuild         []string            `json:"OnBuild,omitempty" yaml:"OnBuild,omitempty"`
-	Mounts          []Mount             `json:"Mounts,omitempty" yaml:"Mounts,omitempty"`
-	Labels          map[string]string   `json:"Labels,omitempty" yaml:"Labels,omitempty"`
-}
-
-// Image is the type representing a docker image and its various properties
-type Image struct {
-	ID              string    `json:"Id" yaml:"Id"`
-	Parent          string    `json:"Parent,omitempty" yaml:"Parent,omitempty"`
-	Comment         string    `json:"Comment,omitempty" yaml:"Comment,omitempty"`
-	Created         time.Time `json:"Created,omitempty" yaml:"Created,omitempty"`
-	Container       string    `json:"Container,omitempty" yaml:"Container,omitempty"`
-	ContainerConfig Config    `json:"ContainerConfig,omitempty" yaml:"ContainerConfig,omitempty"`
-	DockerVersion   string    `json:"DockerVersion,omitempty" yaml:"DockerVersion,omitempty"`
-	Author          string    `json:"Author,omitempty" yaml:"Author,omitempty"`
-	Config          *Config   `json:"Config,omitempty" yaml:"Config,omitempty"`
-	Architecture    string    `json:"Architecture,omitempty" yaml:"Architecture,omitempty"`
-	Size            int64     `json:"Size,omitempty" yaml:"Size,omitempty"`
-	VirtualSize     int64     `json:"VirtualSize,omitempty" yaml:"VirtualSize,omitempty"`
-}
 
 // Error represents failures in the API. It represents a failure from the API.
 type Error struct {
