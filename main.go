@@ -11,7 +11,7 @@ import (
 	"io"
 	"io/ioutil"
 	"time"
-	"encoding/json"
+	"log"
 )
 
 const userAgent = "docker-multi-tenancy"
@@ -28,6 +28,7 @@ type Client struct{
 	endpoint            string
 	endpointURL         *url.URL
 	unixHTTPClient      *http.Client
+	dialer              func(string, string) (net.Conn, error)
 }
 
 // APIImages represent an image returned in the ListImages call.
@@ -136,42 +137,52 @@ func main(){
 
 	fmt.Println("Starting multi-tenancy proxy")
 
-
-
-	c, err := newClient(unixDockerSocket)
+	// Setup localListener (type net.Listener)
+	localListener, err := net.Listen("tcp", localAddrString)
 
 	if err != nil {
+		log.Fatalf("net.Listen failed: %v", err)
+	}
+
+	for {
+		// Setup localConn (type net.Conn)
+		localConn, err := localListener.Accept()
+		if err != nil {
+			log.Fatalf("listen.Accept failed: %v", err)
+		}
+		go forward(localConn)
+	}
+
+
+
+
+}
+
+func forward(localConn net.Conn) {
+	c, err := newClient(unixDockerSocket)
+
+	sockerCon, err := c.dialer("unix", c.endpointURL.Path)
+
+	if err != nil {
+		fmt.Println("Error dialing")
 		os.Exit(-1)
 	}
-	// Path to list all the images
-	path := "/images/json?"
-	resp, err := c.do("GET", path)
 
-	if err != nil{
-		fmt.Println("Error listening images")
-		os.Exit(-1)
-	}
+	// Copy localConn.Reader to sshConn.Writer
+	go func() {
+		_, err = io.Copy(sockerCon, localConn)
+		if err != nil {
+			log.Fatalf("io.Copy failed: %v", err)
+		}
+	}()
 
-
-	defer resp.Body.Close()
-	var images []APIImages
-
-	if err := json.NewDecoder(resp.Body).Decode(&images); err != nil {
-		fmt.Println("Error Decoding")
-		os.Exit(-1)
-	}
-
-
-	for _, img := range images {
-		fmt.Println("ID: ", img.ID)
-		fmt.Println("RepoTags: ", img.RepoTags)
-		fmt.Println("Created: ", img.Created)
-		fmt.Println("Size: ", img.Size)
-		fmt.Println("VirtualSize: ", img.VirtualSize)
-		fmt.Println("ParentId: ", img.ParentID)
-	}
-
-
+	// Copy sshConn.Reader to localConn.Writer
+	go func() {
+		_, err = io.Copy(localConn, sockerCon)
+		if err != nil {
+			log.Fatalf("io.Copy failed: %v", err)
+		}
+	}()
 }
 
 
@@ -185,11 +196,12 @@ func newClient(endpoint string) (*Client, error) {
 	}
 
 	d := net.Dialer{}
+	dialFunc := func(network, addr string) (net.Conn, error) {
+		return d.Dial("unix", u.Path)
+	}
 	unixHTTPClient := &http.Client{
 		Transport: &http.Transport{
-			Dial: func(network, addr string) (net.Conn, error) {
-				return d.Dial("unix", u.Path)
-			},
+			Dial: dialFunc,
 		},
 	}
 
@@ -197,6 +209,7 @@ func newClient(endpoint string) (*Client, error) {
 		unixHTTPClient:      unixHTTPClient,
 		endpoint:            endpoint,
 		endpointURL:         u,
+		dialer:				 dialFunc,
 	}, nil
 }
 
