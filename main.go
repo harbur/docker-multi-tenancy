@@ -7,10 +7,11 @@ import (
 	"strings"
 	"net/url"
 	"errors"
-	"os"
 	"io"
 	"io/ioutil"
-	"log"
+	"encoding/json"
+	"bufio"
+	"os"
 )
 
 const userAgent = "docker-multi-tenancy"
@@ -22,6 +23,18 @@ var (
 	ErrConnectionRefused = errors.New("Connection refused")
 )
 
+
+// APIImages represent an image returned in the ListImages call.
+type APIImages struct {
+	ID          string            `json:"Id" yaml:"Id"`
+	RepoTags    []string          `json:"RepoTags,omitempty" yaml:"RepoTags,omitempty"`
+	Created     int64             `json:"Created,omitempty" yaml:"Created,omitempty"`
+	Size        int64             `json:"Size,omitempty" yaml:"Size,omitempty"`
+	VirtualSize int64             `json:"VirtualSize,omitempty" yaml:"VirtualSize,omitempty"`
+	ParentID    string            `json:"ParentId,omitempty" yaml:"ParentId,omitempty"`
+	RepoDigests []string          `json:"RepoDigests,omitempty" yaml:"RepoDigests,omitempty"`
+	Labels      map[string]string `json:"Labels,omitempty" yaml:"Labels,omitempty"`
+}
 
 type Client struct{
 	endpoint            string
@@ -50,7 +63,7 @@ var (
 
 
 
-func dockerRequestHandler(transformers map[string]func(r *http.Request)) http.Handler {
+func dockerRequestHandler(rqTransformers map[string]func(r *http.Request), rsTransformers map[string]func(r *http.Response)) http.Handler {
 	fn := func(w http.ResponseWriter, r *http.Request) {
 		fmt.Println("Recieved methos ", r.Method, " url", r.URL)
 		c, err := newClient(unixDockerSocket)
@@ -60,9 +73,13 @@ func dockerRequestHandler(transformers map[string]func(r *http.Request)) http.Ha
 			return
 		}
 
-		for k, f := range transformers{
-			fmt.Println("Applixing expresion ", k)
-			f(r)
+		for k, f := range rqTransformers{
+			if k == r.URL.String() {
+				fmt.Println("Applixing expresion ", k)
+				f(r)
+			}else{
+				fmt.Println("No matching for ", k, " and ", r.URL.String())
+			}
 		}
 
 		// TODO needs to accept POST content
@@ -71,6 +88,15 @@ func dockerRequestHandler(transformers map[string]func(r *http.Request)) http.Ha
 		if err != nil {
 			w.Write([]byte("Error"))
 			return
+		}
+
+		for k, f := range rsTransformers{
+			if k == r.URL.String() {
+				fmt.Println("Applixing expresion ", k)
+				f(resp)
+			}else{
+				fmt.Println("No matching for ", k, " and ", r.URL.String())
+			}
 		}
 
 		defer resp.Body.Close()
@@ -171,15 +197,54 @@ func main(){
 
 	fmt.Println("Starting multi-tenancy proxy")
 
-	f := func(r *http.Request){
+	fReq := func(r *http.Request){
 		fmt.Println("Modifiy somehow the request")
 	}
 
-	transformers := make(map[string]func(r *http.Request))
+	fRes := func(r *http.Response){
+		fmt.Println("Modifiy somehow the response")
 
-	transformers["*"] = f
+		// Parse the response
 
-	http.ListenAndServe(localAddrString, dockerRequestHandler(transformers))
+		var images []APIImages
+
+		if err := json.NewDecoder(r.Body).Decode(&images); err != nil {
+			return
+		}
+
+		for _, im :=  range images{
+
+			if im.Labels == nil {
+				im.Labels = make(map[string]string)
+			}
+
+			im.Labels["hola"] = "world"
+		}
+
+		/*
+		var b bytes.Buffer
+		writer := bufio.NewWriter(&b)
+
+		*/
+
+		w := bufio.NewWriter(os.Stdout)
+		// Now take the struct and encode it
+		if err := json.NewEncoder(w).Encode(&images); err != nil {
+			return
+		}
+
+
+	}
+
+	rqTransformers := make(map[string]func(r *http.Request))
+
+	rqTransformers["/images/json"] = fReq
+
+	rsTransformers := make(map[string]func(r *http.Response))
+
+	rsTransformers["/images/json"] = fRes
+
+	http.ListenAndServe(localAddrString, dockerRequestHandler(rqTransformers, rsTransformers))
 
 }
 
