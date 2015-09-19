@@ -13,9 +13,12 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/binary"
+	"net/http/httputil"
+	"log"
 )
 
 const userAgent = "docker-multi-tenancy"
+const logResponse bool = true
 
 var (
 	// ErrInvalidEndpoint is returned when the endpoint is not a valid HTTP URL.
@@ -66,7 +69,7 @@ var (
 
 func dockerRequestHandler(rqTransformers map[string]func(r *http.Request), rsTransformers map[string]func(r *http.Response)) http.Handler {
 	fn := func(w http.ResponseWriter, r *http.Request) {
-		fmt.Println("Recieved methos ", r.Method, " url", r.URL)
+		log.Println("Recieved methos ", r.Method, " url", r.URL)
 		c, err := newClient(unixDockerSocket)
 
 		if err != nil {
@@ -76,10 +79,10 @@ func dockerRequestHandler(rqTransformers map[string]func(r *http.Request), rsTra
 
 		for k, f := range rqTransformers{
 			if k == r.URL.String() {
-				fmt.Println("Applixing expresion ", k)
+				log.Println("Applixing expresion ", k)
 				f(r)
 			}else{
-				fmt.Println("No matching for ", k, " and ", r.URL.String())
+				log.Println("No matching for ", k, " and ", r.URL.String())
 			}
 		}
 
@@ -93,10 +96,10 @@ func dockerRequestHandler(rqTransformers map[string]func(r *http.Request), rsTra
 
 		for k, f := range rsTransformers{
 			if k == r.URL.String() {
-				fmt.Println("Applixing expresion ", k)
+				log.Println("Applixing expresion ", k)
 				f(resp)
 			}else{
-				fmt.Println("No matching for ", k, " and ", r.URL.String())
+				log.Println("No matching for ", k, " and ", r.URL.String())
 			}
 		}
 
@@ -170,6 +173,13 @@ func (c *Client) do(method, path string, body io.Reader) (*http.Response, error)
 	}
 
 	resp, err := httpClient.Do(req)
+
+	if logResponse {
+		if respBytes, err := httputil.DumpResponse(resp, true); err == nil {
+			log.Printf("Response:\n%v\n", string(respBytes))
+		}
+
+	}
 	if err != nil {
 		if strings.Contains(err.Error(), "connection refused") {
 			return nil, ErrConnectionRefused
@@ -195,14 +205,14 @@ func newError(resp *http.Response) *Error {
 
 func main(){
 
-	fmt.Println("Starting multi-tenancy proxy")
+	log.Println("Starting multi-tenancy proxy listening at: ", localAddrString)
 
 	fReq := func(r *http.Request){
-		fmt.Println("Modifiy somehow the request")
+		log.Println("Modifiy somehow the request")
 	}
 
 	fRes := func(r *http.Response){
-		fmt.Println("Modifiy somehow the response")
+		log.Println("Modifiy somehow the response")
 
 		// Parse the response
 
@@ -229,7 +239,6 @@ func main(){
 		if err := json.NewEncoder(w).Encode(&images); err != nil {
 			return
 		}
-
 
 		// Restore the io.ReadCloser to its original state
 		r.Body = ioutil.NopCloser(bytes.NewBuffer(b.Bytes()))
