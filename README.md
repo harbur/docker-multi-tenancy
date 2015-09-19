@@ -37,6 +37,7 @@ Or with Docker Compose
 docker-compose up
 ```
 
+## Using The Proxy
 
 Test it with curl:
 
@@ -48,11 +49,18 @@ curl DOCKER_HOST:9000/images/json
 or with Docker client:
 
 ```
-DOCKER_HOST=192.168.99.100:9000
-unset DOCKER_MACHINE_NAME
+DOCKER_HOST=$(docker-ip):9000
 unset DOCKER_TLS_VERIFY
-unset DOCKER_CERT_PATH
 docker images
 ```
 
 Now docker uses the proxy to redirect requests.
+
+
+NOTE: To get the docker IP, you can use the following in your shell (.bashrc)
+
+```
+docker-ip() {
+  docker-machine ip default 2> /dev/null
+}
+```
