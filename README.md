@@ -28,7 +28,7 @@ docker-compose build
 Run the Proxy using Docker:
 
 ```
-docker run -P 9000:9000 -v /var/run/docker.sock:/var/run/docker.sock harbur/docker-multi-tenancy
+docker run -p 9000:9000 -v /var/run/docker.sock:/var/run/docker.sock harbur/docker-multi-tenancy
 ```
 
 Or with Docker Compose
