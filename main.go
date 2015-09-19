@@ -84,7 +84,7 @@ func dockerRequestHandler(rqTransformers map[string]func(r *http.Request), rsTra
 		}
 
 		// TODO needs to accept POST content
-		resp, err := c.do( r.Method,  r.URL.String())
+		resp, err := c.do( r.Method,  r.URL.String(), r.Body)
 
 		if err != nil {
 			w.Write([]byte("Error"))
@@ -152,15 +152,14 @@ func (c *Client) getFakeUnixURL(path string) string {
 }
 
 
-func (c *Client) do(method, path string) (*http.Response, error) {
-	var params io.Reader
+func (c *Client) do(method, path string, body io.Reader) (*http.Response, error) {
 	var u string
 
 	httpClient := c.unixHTTPClient
 	u = c.getFakeUnixURL(path)
 
 
-	req, err := http.NewRequest(method, u, params)
+	req, err := http.NewRequest(method, u, body)
 	if err != nil {
 		return nil, err
 	}
