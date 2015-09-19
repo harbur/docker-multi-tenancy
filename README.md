@@ -56,11 +56,41 @@ docker images
 
 Now docker uses the proxy to redirect requests.
 
-
-NOTE: To get the docker IP, you can use the following in your shell (.bashrc)
+For Mac users: To get the docker IP, you can use the following in your shell (.bashrc)
 
 ```
 docker-ip() {
   docker-machine ip default 2> /dev/null
 }
 ```
+
+## Transformations:
+
+
+### docker images
+
+When docker images is performed the following is added by the proxy:
+
+```shell
+docker images
+```
+
+is converted to:
+
+```shell
+docker images -f label=io.harbur.dmt.owner=USERNAME
+```
+
+Which in REST API is:
+
+```
+GET /images/json
+GET /images/json?filters=%7B%22label%22%3A%5B%io.harbur.dmt.owner%3DUSERNAME%22%5D%7D
+```
+
+Decoded:
+
+```
+GET /images/json?filters={"label":["io.harbur.dmt.owner=USERNAME"]}
+```
+
