@@ -11,7 +11,8 @@ import (
 	"io/ioutil"
 	"encoding/json"
 	"bufio"
-	"os"
+	"bytes"
+	"encoding/binary"
 )
 
 const userAgent = "docker-multi-tenancy"
@@ -83,7 +84,7 @@ func dockerRequestHandler(rqTransformers map[string]func(r *http.Request), rsTra
 		}
 
 		// TODO needs to accept POST content
-		resp, err := c.do( r.Method,  r.URL.String())
+		resp, err := c.do( r.Method,  r.URL.String(), r.Body)
 
 		if err != nil {
 			w.Write([]byte("Error"))
@@ -151,22 +152,21 @@ func (c *Client) getFakeUnixURL(path string) string {
 }
 
 
-func (c *Client) do(method, path string) (*http.Response, error) {
-	var params io.Reader
+func (c *Client) do(method, path string, body io.Reader) (*http.Response, error) {
 	var u string
 
 	httpClient := c.unixHTTPClient
 	u = c.getFakeUnixURL(path)
 
 
-	req, err := http.NewRequest(method, u, params)
+	req, err := http.NewRequest(method, u, body)
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Set("User-Agent", userAgent)
 
 	if method == "POST" {
-		req.Header.Set("Content-Type", "plain/text")
+		req.Header.Set("Content-Type", "application/json")
 	}
 
 	resp, err := httpClient.Do(req)
@@ -221,19 +221,21 @@ func main(){
 			im.Labels["hola"] = "world"
 		}
 
-		/*
+
 		var b bytes.Buffer
-		writer := bufio.NewWriter(&b)
+		w := bufio.NewWriter(&b)
 
-		*/
-
-		w := bufio.NewWriter(os.Stdout)
 		// Now take the struct and encode it
 		if err := json.NewEncoder(w).Encode(&images); err != nil {
 			return
 		}
 
 
+		// Restore the io.ReadCloser to its original state
+		r.Body = ioutil.NopCloser(bytes.NewBuffer(b.Bytes()))
+
+		// Set size of modified body
+		r.ContentLength = int64(binary.Size(b))
 	}
 
 	rqTransformers := make(map[string]func(r *http.Request))
