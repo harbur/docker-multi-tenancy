@@ -249,11 +249,11 @@ func main(){
 
 	rqTransformers := make(map[string]func(r *http.Request))
 
-	rqTransformers["/images/json"] = fReq
+	rqTransformers["/v1.20/images/json"] = fReq
 
 	rsTransformers := make(map[string]func(r *http.Response))
 
-	rsTransformers["/images/json"] = fRes
+	rsTransformers["/v1.20/images/json"] = fRes
 
 	http.ListenAndServe(localAddrString, dockerRequestHandler(rqTransformers, rsTransformers))
 
