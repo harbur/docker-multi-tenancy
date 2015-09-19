@@ -166,7 +166,7 @@ func (c *Client) do(method, path string, body io.Reader) (*http.Response, error)
 	req.Header.Set("User-Agent", userAgent)
 
 	if method == "POST" {
-		req.Header.Set("Content-Type", "plain/text")
+		req.Header.Set("Content-Type", "application/json")
 	}
 
 	resp, err := httpClient.Do(req)
