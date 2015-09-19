@@ -11,7 +11,8 @@ import (
 	"io/ioutil"
 	"encoding/json"
 	"bufio"
-	"os"
+	"bytes"
+	"encoding/binary"
 )
 
 const userAgent = "docker-multi-tenancy"
@@ -221,19 +222,21 @@ func main(){
 			im.Labels["hola"] = "world"
 		}
 
-		/*
+
 		var b bytes.Buffer
-		writer := bufio.NewWriter(&b)
+		w := bufio.NewWriter(&b)
 
-		*/
-
-		w := bufio.NewWriter(os.Stdout)
 		// Now take the struct and encode it
 		if err := json.NewEncoder(w).Encode(&images); err != nil {
 			return
 		}
 
 
+		// Restore the io.ReadCloser to its original state
+		r.Body = ioutil.NopCloser(bytes.NewBuffer(b.Bytes()))
+
+		// Set size of modified body
+		r.ContentLength = int64(binary.Size(b))
 	}
 
 	rqTransformers := make(map[string]func(r *http.Request))
